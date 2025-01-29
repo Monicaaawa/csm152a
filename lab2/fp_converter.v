@@ -52,8 +52,8 @@ module FloatingPointConverter (
             exponent = 3'b000;
     end
 
-    assign leading_bits = magnitude[11 - leading_zeros -: 4];
-    assign fifth_bit = magnitude[11 - leading_zeros - 4];
+    assign leading_bits = (exponent == 3'b000) ? magnitude[3:0] : magnitude[11 - leading_zeros -: 4];
+    assign fifth_bit = (exponent == 3'b000) ? 1'b0 : magnitude[11 - leading_zeros - 4];
 
     always @(*) begin
         if (fifth_bit) begin
