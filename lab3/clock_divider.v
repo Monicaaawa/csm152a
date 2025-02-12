@@ -42,7 +42,7 @@ module clock_divider(
 
             // Blinking Clock
             if (counter_blink >= 12500000) begin
-                counter_blink< = 0;
+                counter_blink <= 0;
                 clk_blink <= ~clk_blink;
             end else counter_blink <= counter_blink + 1;
         end

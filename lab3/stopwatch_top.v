@@ -66,6 +66,6 @@ module stopwatch_top(
         .sec_tens(sec_tens),
         .min_ones(min_ones),
         .min_tens(min_tens),
-        .segment(segment)
+        .seg(seg)
     );     
 endmodule
