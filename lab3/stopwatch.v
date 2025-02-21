@@ -7,7 +7,7 @@ module stopwatch(
 
     // Toggle pause state on rising edge of pause signal
     always @(posedge pause) begin
-        paused <= ~paused;
+        paused <= !paused;
     end
 
     // Main stopwatch logic
@@ -17,14 +17,15 @@ module stopwatch(
             sec_tens <= 0;
             min_ones <= 0;
             min_tens <= 0;
-            paused <= 0;  // Ensure the stopwatch is running after reset
-        end else if (!paused) begin
+        end 
+        else if (!paused) begin
             if (adj) begin
                 if (sel) 
                     increment_seconds();  // Adjusting seconds
                 else 
                     increment_minutes();  // Adjusting minutes
-            end else begin
+            end 
+            else begin
                 increment_seconds();  // Normal time counting
             end
         end
@@ -32,34 +33,72 @@ module stopwatch(
 
     // Increment seconds logic
     task increment_seconds;
+        reg [3:0] temp_sec_ones;
+        reg [3:0] temp_sec_tens;
+        reg [3:0] temp_min_ones;
+        reg [3:0] temp_min_tens;
     begin
-        if (sec_ones == 9) begin
-            sec_ones <= 0;
-            if (sec_tens == 5) begin
-                sec_tens <= 0;
-                increment_minutes();  // Carry over to minutes
+        // Copy current values to temporary registers
+        temp_sec_ones = sec_ones;
+        temp_sec_tens = sec_tens;
+        temp_min_ones = min_ones;
+        temp_min_tens = min_tens;
+
+        // Increment logic
+        if (temp_sec_ones == 9) begin
+            temp_sec_ones = 0;
+            if (temp_sec_tens == 5) begin
+                temp_sec_tens = 0;
+                if (temp_min_ones == 9) begin
+                    temp_min_ones = 0;
+                    if (temp_min_tens == 5) begin
+                        temp_min_tens = 0; // Reset after 59:59
+                    end else begin
+                        temp_min_tens = temp_min_tens + 1;
+                    end
+                end else begin
+                    temp_min_ones = temp_min_ones + 1;
+                end
             end else begin
-                sec_tens <= sec_tens + 1;
+                temp_sec_tens = temp_sec_tens + 1;
             end
         end else begin
-            sec_ones <= sec_ones + 1;
+            temp_sec_ones = temp_sec_ones + 1;
         end
+
+        // Update registers after all calculations are done
+        sec_ones <= temp_sec_ones;
+        sec_tens <= temp_sec_tens;
+        min_ones <= temp_min_ones;
+        min_tens <= temp_min_tens;
     end
     endtask
 
     // Increment minutes logic
     task increment_minutes;
+        reg [3:0] temp_min_ones;
+        reg [3:0] temp_min_tens;
     begin
-        if (min_ones == 9) begin
-            min_ones <= 0;
-            if (min_tens == 5) begin
-                min_tens <= 0;  // Reset to 00 after 59 minutes
+        // Copy current values to temporary registers
+        temp_min_ones = min_ones;
+        temp_min_tens = min_tens;
+
+        // Increment logic
+        if (temp_min_ones == 9) begin
+            temp_min_ones = 0;
+            if (temp_min_tens == 5) begin
+                temp_min_tens = 0;  // Reset to 00 after 59 minutes
             end else begin
-                min_tens <= min_tens + 1;
+                temp_min_tens = temp_min_tens + 1;
             end
         end else begin
-            min_ones <= min_ones + 1;
-        end
+            temp_min_ones = temp_min_ones + 1;
+        end    
+
+        // Update registers after all calculations are done
+        min_ones <= temp_min_ones;
+        min_tens <= temp_min_tens;
     end    
     endtask
+
 endmodule
