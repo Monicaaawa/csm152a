@@ -1,6 +1,6 @@
 module stopwatch_top(
     input clk, rst, pause, adj, sel,
-    output [3:0] an,
+    output reg [3:0] an,
     output [6:0] seg
 );
     wire clk_1Hz, clk_2Hz, clk_fast, clk_blink;
@@ -33,7 +33,7 @@ module stopwatch_top(
 
     stopwatch sw(
         .clk_1Hz(clk_1Hz),
-        .clk_2hz(clk_2Hz),
+        .clk_2Hz(clk_2Hz),
         .rst(rst),
         .pause(pause),
         .adj(adj),
@@ -56,11 +56,11 @@ module stopwatch_top(
         .stable(rst_valid)
     );
 
-    seven_segment_display ssd(
-        .clk_fast(adj),
-        .clk_blink(sel),
-        .adj(clk_display),
-        .sel(clk_blink),
+    seven_seg_display ssd(
+        .clk_fast(clk_fast),
+        .clk_blink(clk_blink),
+        .adj(adj),
+        .sel(sel),
         .an(an),
         .sec_ones(sec_ones),
         .sec_tens(sec_tens),
