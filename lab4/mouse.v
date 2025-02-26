@@ -1,4 +1,4 @@
-module mouse(
+module mouse_basys3_FPGA(
     input clock_100Mhz, // 100 MHz clock source on Basys 3 FPGA
     input reset, // Reset signal
     input Mouse_Data, // Mouse PS2 data
@@ -9,8 +9,10 @@ module mouse(
     
     reg [5:0] Mouse_bits; // Count number of bits received from the PS/2 mouse
     reg [7:0] Mouse_byte[2:0]; // Stores 3 bytes from PS/2 mouse
-    reg [7:0] X_pos; // X position
-    reg [7:0] Y_pos; // Y position
+    reg signed [15:0] X_accum; // Accumulates raw X movement
+    reg signed [15:0] Y_accum; // Accumulates raw Y movement
+    reg [7:0] X_pos; // Displayed X coordinate (in cm)
+    reg [7:0] Y_pos; // Displayed Y coordinate (in cm)
     reg [3:0] LED_BCD; // Current digit to display
     
     reg [20:0] refresh_counter; // Counter for refreshing display
@@ -33,6 +35,8 @@ module mouse(
             Mouse_byte[0] <= 0;
             Mouse_byte[1] <= 0;
             Mouse_byte[2] <= 0;
+            X_accum <= 0;
+            Y_accum <= 0;
             X_pos <= 0;
             Y_pos <= 0;
         end else begin
@@ -43,9 +47,26 @@ module mouse(
             else if (Mouse_bits >= 17 && Mouse_bits <= 24)
                 Mouse_byte[2] <= {Mouse_Data, Mouse_byte[2][7:1]}; // Y movement
             else if (Mouse_bits == 33) begin
-                // Update X and Y position when a full packet is received
-                X_pos <= X_pos + Mouse_byte[1]; 
-                Y_pos <= Y_pos + Mouse_byte[2];
+                // Accumulate small movements
+                X_accum <= X_accum + Mouse_byte[1]; 
+                Y_accum <= Y_accum + Mouse_byte[2];
+
+                // Update position in cm (only if accumulated movement reaches 10 units)
+                if (X_accum >= 10) begin
+                    X_pos <= X_pos + 1; // Increase X by 1 cm
+                    X_accum <= 0; // Reset accumulator
+                end else if (X_accum <= -10) begin
+                    X_pos <= 0; // Prevent moving left (negative X)
+                    X_accum <= 0;
+                end
+
+                if (Y_accum >= 10) begin
+                    Y_pos <= Y_pos + 1; // Increase Y by 1 cm
+                    Y_accum <= 0; // Reset accumulator
+                end else if (Y_accum <= -10) begin
+                    Y_pos <= 0; // Prevent moving down (negative Y)
+                    Y_accum <= 0;
+                end
             end
         end
     end
