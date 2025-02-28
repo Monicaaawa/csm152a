@@ -48,29 +48,29 @@ module mouse_basys3_FPGA(
         end else if (Mouse_bits == 33) begin
             // Process X movement
             if (status_byte[4])  // Check sign bit
-                X_accum <= X_accum - X_movement;
+                X_accum <= X_accum - {8'b0, X_movement};
             else
-                X_accum <= X_accum + X_movement;
+                X_accum <= X_accum + {8'b0, X_movement};
 
             // Process Y movement
             if (status_byte[5])  // Check sign bit
-                Y_accum <= Y_accum - Y_movement;
+                Y_accum <= Y_accum - {8'b0, Y_movement};
             else
-                Y_accum <= Y_accum + Y_movement;
+                Y_accum <= Y_accum + {8'b0, Y_movement};
 
             // Convert to X, Y positions (Preventing overflow)
-            if (X_accum >= 99) begin
+            if (X_accum >= 250) begin
                 if (X_pos < 99) X_pos <= X_pos + 1;
                 X_accum <= 0;
-            end else if (X_accum <= -99) begin
+            end else if (X_accum <= -250) begin
                 if (X_pos > 0) X_pos <= X_pos - 1;
                 X_accum <= 0;
             end
 
-            if (Y_accum >= 99) begin
+            if (Y_accum >= 250) begin
                 if (Y_pos < 99) Y_pos <= Y_pos + 1;
                 Y_accum <= 0;
-            end else if (Y_accum <= -99) begin
+            end else if (Y_accum <= -250) begin
                 if (Y_pos > 0) Y_pos <= Y_pos - 1;
                 Y_accum <= 0;
             end
