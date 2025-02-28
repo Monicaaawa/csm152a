@@ -1,69 +1,78 @@
 module mouse_basys3_FPGA(
-    input clock_100Mhz, // 100 MHz clock source on Basys 3 FPGA
-    input reset, // Reset signal
-    input Mouse_Data, // Mouse PS2 data
-    input Mouse_Clk, // Mouse PS2 Clock
+    input clock_100Mhz,       // 100 MHz clock source on Basys 3 FPGA
+    input reset,              // Reset signal
+    input Mouse_Data,         // Mouse PS2 data
+    input Mouse_Clk,          // Mouse PS2 Clock
     output reg [3:0] Anode_Activate, // Anode signals of the 7-segment LED display
-    output reg [6:0] LED_out // Cathode patterns of the 7-segment LED display
+    output reg [6:0] LED_out        // Cathode patterns of the 7-segment LED display
 );
     
-    reg [5:0] Mouse_bits; // Count number of bits received from the PS/2 mouse
+    reg [5:0] Mouse_bits;  // Count number of bits received from the PS/2 mouse
     reg signed [15:0] X_accum; // Accumulates raw X movement
     reg signed [15:0] Y_accum; // Accumulates raw Y movement
     reg [7:0] X_pos; // Displayed X coordinate (in cm)
     reg [7:0] Y_pos; // Displayed Y coordinate (in cm)
     reg [3:0] LED_BCD; // Current digit to display
-    
+
     reg [20:0] refresh_counter; // Counter for refreshing display
     wire [1:0] LED_activating_counter;
-    
-    // Mouse data reception
-    always @(posedge Mouse_Clk or posedge reset) begin
+
+    reg [32:0] mouse_shift_reg; // 33-bit shift register for PS2 data reception
+
+    // Mouse data reception - Shift Register
+    always @(negedge Mouse_Clk or posedge reset) begin
         if (reset) begin
             Mouse_bits <= 0;
-        end else if (Mouse_bits <= 31) begin
+            mouse_shift_reg <= 0;
+        end else if (Mouse_bits < 33) begin
+            mouse_shift_reg <= {mouse_shift_reg[31:0], Mouse_Data}; // Shift in the new bit
             Mouse_bits <= Mouse_bits + 1;
         end else begin
-            Mouse_bits <= 0;
+            Mouse_bits <= 0; // Reset bit counter when complete
         end
     end
 
-    // Storing Mouse Data (Extract X and Y movement)
-    always @(negedge Mouse_Clk or posedge reset) begin
+    // Assign meaningful names to the extracted bits
+    wire start1, parity1, stop1, start2, parity2, stop2, start3, parity3, stop3;
+    wire [7:0] status_byte, X_movement, Y_movement;
+
+    assign {start1, status_byte, parity1, stop1, start2, X_movement, parity2, stop2, start3, Y_movement, parity3, stop3} = mouse_shift_reg;
+
+    // Processing X and Y Movement Data
+    always @(posedge Mouse_Clk or posedge reset) begin
         if (reset) begin
             X_accum <= 0;
             Y_accum <= 0;
             X_pos <= 0;
             Y_pos <= 0;
-        end else begin
-            if (Mouse_bits == 5) begin
-                if (Mouse_Data) // X sign bit
-                    X_accum <= X_accum - 10;
-                else
-                    X_accum <= X_accum + 10;
+        end else if (Mouse_bits == 33) begin
+            // Process X movement
+            if (status_byte[4])  // Check sign bit
+                X_accum <= X_accum - X_movement;
+            else
+                X_accum <= X_accum + X_movement;
 
-                if (X_accum >= 99) begin
-                    if (X_pos < 99) X_pos <= X_pos + 1; // Prevent overflow
-                    X_accum <= 0; 
-                end else if (X_accum <= -99) begin
-                    if (X_pos > 0) X_pos <= X_pos - 1;
-                    X_accum <= 0;
-                end
+            // Process Y movement
+            if (status_byte[5])  // Check sign bit
+                Y_accum <= Y_accum - Y_movement;
+            else
+                Y_accum <= Y_accum + Y_movement;
+
+            // Convert to X, Y positions (Preventing overflow)
+            if (X_accum >= 99) begin
+                if (X_pos < 99) X_pos <= X_pos + 1;
+                X_accum <= 0;
+            end else if (X_accum <= -99) begin
+                if (X_pos > 0) X_pos <= X_pos - 1;
+                X_accum <= 0;
             end
 
-            if (Mouse_bits == 6) begin
-                if (Mouse_Data) // Y sign bit
-                    Y_accum <= Y_accum - 10;
-                else
-                    Y_accum <= Y_accum + 10;
-
-                if (Y_accum >= 99) begin
-                    if (Y_pos < 99) Y_pos <= Y_pos + 1; // Prevent overflow
-                    Y_accum <= 0; 
-                end else if (Y_accum <= -99) begin
-                    if (Y_pos > 0) Y_pos <= Y_pos - 1;
-                    Y_accum <= 0;
-                end
+            if (Y_accum >= 99) begin
+                if (Y_pos < 99) Y_pos <= Y_pos + 1;
+                Y_accum <= 0;
+            end else if (Y_accum <= -99) begin
+                if (Y_pos > 0) Y_pos <= Y_pos - 1;
+                Y_accum <= 0;
             end
         end
     end
