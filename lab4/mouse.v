@@ -8,7 +8,6 @@ module mouse_basys3_FPGA(
 );
     
     reg [5:0] Mouse_bits; // Count number of bits received from the PS/2 mouse
-    reg [7:0] Mouse_byte[2:0]; // Stores 3 bytes from PS/2 mouse
     reg signed [15:0] X_accum; // Accumulates raw X movement
     reg signed [15:0] Y_accum; // Accumulates raw Y movement
     reg [7:0] X_pos; // Displayed X coordinate (in cm)
@@ -32,32 +31,16 @@ module mouse_basys3_FPGA(
     // Storing Mouse Data (Extract X and Y movement)
     always @(negedge Mouse_Clk or posedge reset) begin
         if (reset) begin
-            Mouse_byte[0] <= 0;
-            Mouse_byte[1] <= 0;
-            Mouse_byte[2] <= 0;
             X_accum <= 0;
             Y_accum <= 0;
             X_pos <= 0;
             Y_pos <= 0;
         end else begin
-            if (Mouse_bits >= 1 && Mouse_bits <= 8)
-                Mouse_byte[0] <= {Mouse_Data, Mouse_byte[0][7:1]}; // First byte (Status byte, contains button states)
-            else if (Mouse_bits >= 9 && Mouse_bits <= 16)
-                Mouse_byte[1] <= {Mouse_Data, Mouse_byte[1][7:1]}; // X movement
-            else if (Mouse_bits >= 17 && Mouse_bits <= 24)
-                Mouse_byte[2] <= {Mouse_Data, Mouse_byte[2][7:1]}; // Y movement
-            else if (Mouse_bits == 33) begin
-                if (Mouse_byte[0][4]) // X sign bit
-                    // X_accum <= X_accum + {8'b0, ~Mouse_byte[1] + 1};
-                    X_accum <= -99;
+            if (Mouse_bits == 5) begin
+                if (Mouse_Data) // X sign bit
+                    X_accum <= X_accum - 5;
                 else
-                    X_accum <= X_accum + Mouse_byte[1];
-
-                if (Mouse_byte[0][5]) // Y sign bit
-                    // Y_accum <= Y_accum + {8'b0, ~Mouse_byte[2] + 1};
-                    Y_accum <= -99;
-                else
-                    Y_accum <= Y_accum + Mouse_byte[2];
+                    X_accum <= X_accum + 5;
 
                 if (X_accum >= 99) begin
                     if (X_pos < 99) X_pos <= X_pos + 1; // Prevent overflow
@@ -65,7 +48,13 @@ module mouse_basys3_FPGA(
                 end else if (X_accum <= -99) begin
                     if (X_pos > 0) X_pos <= X_pos - 1;
                     X_accum <= 0;
-                end
+                end                    
+
+            if (Mouse_bits == 6) begin
+                if (Mouse_Data) // Y sign bit
+                    Y_accum <= Y_accum - 5;
+                else
+                    Y_accum <= Y_accum + 5;
 
                 if (Y_accum >= 99) begin
                     if (Y_pos < 99) Y_pos <= Y_pos + 1; // Prevent overflow
