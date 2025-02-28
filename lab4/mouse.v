@@ -41,22 +41,29 @@ module mouse_basys3_FPGA(
             Y_pos <= 0;
         end else begin
             if (Mouse_bits >= 1 && Mouse_bits <= 8)
-                Mouse_byte[0] <= {Mouse_Data, Mouse_byte[0][7:1]}; // First byte
+                Mouse_byte[0] <= {Mouse_Data, Mouse_byte[0][7:1]}; // First byte (Status byte, contains button states)
             else if (Mouse_bits >= 9 && Mouse_bits <= 16)
                 Mouse_byte[1] <= {Mouse_Data, Mouse_byte[1][7:1]}; // X movement
             else if (Mouse_bits >= 17 && Mouse_bits <= 24)
                 Mouse_byte[2] <= {Mouse_Data, Mouse_byte[2][7:1]}; // Y movement
             else if (Mouse_bits == 33) begin
-                // Accumulate small movements
-                X_accum <= X_accum + Mouse_byte[1]; 
-                Y_accum <= Y_accum + Mouse_byte[2];
+                // Ignore button clicks, only process movement
+                if (Mouse_byte[0][3]) // X sign bit
+                    X_accum <= X_accum - {8'b0, ~Mouse_byte[1] + 1}; // 2’s complement
+                else
+                    X_accum <= X_accum + Mouse_byte[1];
+
+                if (Mouse_byte[0][4]) // Y sign bit
+                    Y_accum <= Y_accum - {8'b0, ~Mouse_byte[2] + 1}; // 2’s complement
+                else
+                    Y_accum <= Y_accum + Mouse_byte[2];
 
                 // Update position in cm (only if accumulated movement reaches 10 units)
                 if (X_accum >= 10) begin
                     X_pos <= X_pos + 1; // Increase X by 1 cm
                     X_accum <= 0; // Reset accumulator
                 end else if (X_accum <= -10) begin
-                    X_pos <= 0; // Prevent moving left (negative X)
+                    if (X_pos > 0) X_pos <= X_pos - 1; // Prevent negative X
                     X_accum <= 0;
                 end
 
@@ -64,7 +71,7 @@ module mouse_basys3_FPGA(
                     Y_pos <= Y_pos + 1; // Increase Y by 1 cm
                     Y_accum <= 0; // Reset accumulator
                 end else if (Y_accum <= -10) begin
-                    Y_pos <= 0; // Prevent moving down (negative Y)
+                    if (Y_pos > 0) Y_pos <= Y_pos - 1; // Prevent negative Y
                     Y_accum <= 0;
                 end
             end
