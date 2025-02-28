@@ -49,9 +49,7 @@ module mouse_basys3_FPGA(
                     if (X_pos > 0) X_pos <= X_pos - 1;
                     X_accum <= 0;
                 end
-            end
-
-            if (Mouse_bits == 6) begin
+            end else if (Mouse_bits == 6) begin
                 if (Mouse_Data) // Y sign bit
                     Y_accum <= Y_accum - 10;
                 else
