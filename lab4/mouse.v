@@ -1,41 +1,36 @@
 module mouse_basys3_FPGA(
     input clock_100Mhz, // 100 MHz clock source on Basys 3 FPGA
     input reset, // Reset signal
-    input Mouse_Data, // Mouse PS/2 Data
-    input Mouse_Clk, // Mouse PS/2 Clock
-    output reg [3:0] Anode_Activate, // Anode signals for 7-segment display
-    output reg [6:0] LED_out // Cathode patterns for 7-segment display
+    input Mouse_Data, // Mouse PS2 data
+    input Mouse_Clk, // Mouse PS2 Clock
+    output reg [3:0] Anode_Activate, // Anode signals of the 7-segment LED display
+    output reg [6:0] LED_out // Cathode patterns of the 7-segment LED display
 );
-
-    reg [4:0] Mouse_bits; // Counter for received bits
-    reg [10:0] shift_reg; // Shift register for PS/2 word
-    reg [7:0] Mouse_byte[2:0]; // Stores the three PS/2 data bytes
+    
+    reg [5:0] Mouse_bits; // Count number of bits received from the PS/2 mouse
+    reg [7:0] Mouse_byte[2:0]; // Stores 3 bytes from PS/2 mouse
     reg signed [15:0] X_accum; // Accumulates raw X movement
     reg signed [15:0] Y_accum; // Accumulates raw Y movement
-    reg [7:0] X_pos; // X coordinate (in cm)
-    reg [7:0] Y_pos; // Y coordinate (in cm)
+    reg [7:0] X_pos; // Displayed X coordinate (in cm)
+    reg [7:0] Y_pos; // Displayed Y coordinate (in cm)
     reg [3:0] LED_BCD; // Current digit to display
-
-    reg [20:0] refresh_counter; // Refresh counter for display multiplexing
+    
+    reg [20:0] refresh_counter; // Counter for refreshing display
     wire [1:0] LED_activating_counter;
-
-    // Shift register to receive 11-bit PS/2 words
-    always @(negedge Mouse_Clk or posedge reset) begin
+    
+    // Mouse data reception
+    always @(posedge Mouse_Clk or posedge reset) begin
         if (reset) begin
             Mouse_bits <= 0;
-            shift_reg <= 0;
+        end else if (Mouse_bits < 33) begin
+            Mouse_bits <= Mouse_bits + 1;
         end else begin
-            if (Mouse_bits < 11) begin
-                shift_reg <= {Mouse_Data, shift_reg[10:1]}; // Shift in data LSB-first
-                Mouse_bits <= Mouse_bits + 1;
-            end else begin
-                Mouse_bits <= 0;
-            end
+            Mouse_bits <= 0;
         end
     end
 
-    // Extract 8-bit data from 11-bit PS/2 word
-    always @(posedge clock_100Mhz or posedge reset) begin
+    // Storing Mouse Data (Extract X and Y movement)
+    always @(negedge Mouse_Clk or posedge reset) begin
         if (reset) begin
             Mouse_byte[0] <= 0;
             Mouse_byte[1] <= 0;
@@ -44,54 +39,46 @@ module mouse_basys3_FPGA(
             Y_accum <= 0;
             X_pos <= 0;
             Y_pos <= 0;
-        end else if (Mouse_bits == 11) begin
-            case (Mouse_bits / 11)
-                0: Mouse_byte[0] <= shift_reg[8:1]; // Status byte
-                1: Mouse_byte[1] <= shift_reg[8:1]; // X movement
-                2: Mouse_byte[2] <= shift_reg[8:1]; // Y movement
-            endcase
-        end
-    end
+        end else begin
+            if (Mouse_bits >= 1 && Mouse_bits <= 8)
+                Mouse_byte[0] <= {Mouse_Data, Mouse_byte[0][7:1]}; // First byte (Status byte, contains button states)
+            else if (Mouse_bits >= 9 && Mouse_bits <= 16)
+                Mouse_byte[1] <= {Mouse_Data, Mouse_byte[1][7:1]}; // X movement
+            else if (Mouse_bits >= 17 && Mouse_bits <= 24)
+                Mouse_byte[2] <= {Mouse_Data, Mouse_byte[2][7:1]}; // Y movement
+            else if (Mouse_bits == 33) begin
+                if (Mouse_byte[0][4]) // X sign bit
+                    // X_accum <= X_accum + {8'b0, ~Mouse_byte[1] + 1};
+                    X_accum <= -99;
+                else
+                    X_accum <= X_accum + Mouse_byte[1];
 
-    // Process mouse movement when all bytes are received
-    always @(posedge clock_100Mhz or posedge reset) begin
-        if (reset) begin
-            X_accum <= 0;
-            Y_accum <= 0;
-            X_pos <= 0;
-            Y_pos <= 0;
-        end else if (Mouse_bits == 33) begin
-            // Correctly handle signed 2's complement values
-            if (Mouse_byte[0][3]) // X sign bit
-                X_accum <= X_accum + { {8{Mouse_byte[1][7]}}, Mouse_byte[1] };
-            else
-                X_accum <= X_accum + Mouse_byte[1];
+                if (Mouse_byte[0][5]) // Y sign bit
+                    // Y_accum <= Y_accum + {8'b0, ~Mouse_byte[2] + 1};
+                    Y_accum <= -99;
+                else
+                    Y_accum <= Y_accum + Mouse_byte[2];
 
-            if (Mouse_byte[0][4]) // Y sign bit
-                Y_accum <= Y_accum + { {8{Mouse_byte[2][7]}}, Mouse_byte[2] };
-            else
-                Y_accum <= Y_accum + Mouse_byte[2];
+                if (X_accum >= 99) begin
+                    if (X_pos < 99) X_pos <= X_pos + 1; // Prevent overflow
+                    X_accum <= 0; 
+                end else if (X_accum <= -99) begin
+                    if (X_pos > 0) X_pos <= X_pos - 1;
+                    X_accum <= 0;
+                end
 
-            // Convert movement to cm and prevent overflow
-            if (X_accum >= 10) begin
-                if (X_pos < 99) X_pos <= X_pos + 1;
-                X_accum <= 0;
-            end else if (X_accum <= -10) begin
-                if (X_pos > 0) X_pos <= X_pos - 1;
-                X_accum <= 0;
-            end
-
-            if (Y_accum >= 10) begin
-                if (Y_pos < 99) Y_pos <= Y_pos + 1;
-                Y_accum <= 0;
-            end else if (Y_accum <= -10) begin
-                if (Y_pos > 0) Y_pos <= Y_pos - 1;
-                Y_accum <= 0;
+                if (Y_accum >= 99) begin
+                    if (Y_pos < 99) Y_pos <= Y_pos + 1; // Prevent overflow
+                    Y_accum <= 0; 
+                end else if (Y_accum <= -99) begin
+                    if (Y_pos > 0) Y_pos <= Y_pos - 1;
+                    Y_accum <= 0;
+                end
             end
         end
     end
 
-    // Refresh counter for 7-segment display
+    // Refresh counter to multiplex 7-segment display
     always @(posedge clock_100Mhz or posedge reset) begin 
         if (reset) 
             refresh_counter <= 0;
