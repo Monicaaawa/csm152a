@@ -49,12 +49,12 @@ module mouse_basys3_FPGA(
             else if (Mouse_bits == 33) begin
                 // Ignore button clicks, only process movement
                 if (Mouse_byte[0][3]) // X sign bit
-                    X_accum <= X_accum + {8{Mouse_byte[0][3]}, Mouse_byte[1]};
+                    X_accum <= X_accum + {8'b0, ~Mouse_byte[1] + 1};
                 else
                     X_accum <= X_accum + Mouse_byte[1];
 
                 if (Mouse_byte[0][4]) // Y sign bit
-                    Y_accum <= Y_accum + {8{Mouse_byte[0][4]}, Mouse_byte[2]};
+                    Y_accum <= Y_accum + {8'b0, ~Mouse_byte[2] + 1};
                 else
                     Y_accum <= Y_accum + Mouse_byte[2];
 
