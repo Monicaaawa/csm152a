@@ -21,7 +21,7 @@ module mouse_basys3_FPGA(
     always @(posedge Mouse_Clk or posedge reset) begin
         if (reset) begin
             Mouse_bits <= 0;
-        end else if (Mouse_bits < 33) begin
+        end else if (Mouse_bits <= 31) begin
             Mouse_bits <= Mouse_bits + 1;
         end else begin
             Mouse_bits <= 0;
@@ -38,9 +38,9 @@ module mouse_basys3_FPGA(
         end else begin
             if (Mouse_bits == 5) begin
                 if (Mouse_Data) // X sign bit
-                    X_accum <= X_accum - 5;
+                    X_accum <= X_accum - 10;
                 else
-                    X_accum <= X_accum + 5;
+                    X_accum <= X_accum + 10;
 
                 if (X_accum >= 99) begin
                     if (X_pos < 99) X_pos <= X_pos + 1; // Prevent overflow
@@ -48,13 +48,14 @@ module mouse_basys3_FPGA(
                 end else if (X_accum <= -99) begin
                     if (X_pos > 0) X_pos <= X_pos - 1;
                     X_accum <= 0;
-                end                    
+                end
+            end
 
             if (Mouse_bits == 6) begin
                 if (Mouse_Data) // Y sign bit
-                    Y_accum <= Y_accum - 5;
+                    Y_accum <= Y_accum - 10;
                 else
-                    Y_accum <= Y_accum + 5;
+                    Y_accum <= Y_accum + 10;
 
                 if (Y_accum >= 99) begin
                     if (Y_pos < 99) Y_pos <= Y_pos + 1; // Prevent overflow
