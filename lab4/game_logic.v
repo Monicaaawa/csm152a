@@ -4,17 +4,16 @@ module game_logic(
     input [15:0] displayed_number,
     input [15:0] entered_code,
     input code_entered,
-    output reg [1:0] game_status, // 0: normal, 1: blinking, 2: PASS, 3: FAIL
+    output reg [1:0] game_status, // 0: Normal, 1: Blinking, 2: PASS, 3: FAIL
     output reg [15:0] secret_code
     );
 
     reg [26:0] blink_counter;
-    reg [1:0] game_state;
 
     always @(posedge clock_100Mhz or posedge reset)
     begin
         if (reset) begin
-            secret_code <= 16'd1234; // Replace with a proper random number generator
+            secret_code <= 16'd1234; // Replace with a random generator
             game_status <= 0;
         end
         else begin

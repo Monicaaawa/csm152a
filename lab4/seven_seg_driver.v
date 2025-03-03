@@ -26,7 +26,7 @@ module seven_seg_display(
     always @(posedge clock_100Mhz)
     begin
         if (game_status == 1)
-            blink_enable = refresh_counter[18]; // Blink effect every few cycles
+            blink_enable = refresh_counter[18]; // Blinking effect
         else
             blink_enable = 1;
     end
