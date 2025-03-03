@@ -11,6 +11,7 @@ module safe_cracker(
     wire [15:0] displayed_number, secret_code;
     wire [3:0] Decode;
     wire [15:0] entered_code;
+    reg [2:0] digit_count;
     reg code_entered;
     wire [1:0] game_status;
 
@@ -22,16 +23,25 @@ module safe_cracker(
         .DecodeOut(Decode)
     );
 
-    // Convert 4-bit keypad output to full 16-bit entry
     always @(posedge clock_100Mhz or posedge reset) begin
-        if (reset)
+        if (reset) begin
             entered_code <= 16'h0000;
-        else if (Decode != 4'hF) begin
-            entered_code <= {entered_code[11:0], Decode}; // Shift new digit in
-            code_entered <= 1;
-        end
-        else
+            digit_count <= 0;
             code_entered <= 0;
+        end
+        else if (Decode != 4'hF) begin  // If a valid key is pressed
+            if (digit_count < 4) begin  // Only store up to 4 digits
+                entered_code <= {entered_code[11:0], Decode}; // Shift new digit in
+                digit_count <= digit_count + 1;
+            end
+            if (digit_count == 3) // After entering the 4th digit
+                code_entered <= 1;
+            else
+                code_entered <= 0;
+        end
+        else begin
+            code_entered <= 0; // Reset code_entered until 4 digits are entered again
+        end
     end
 
     // Mouse Controller
