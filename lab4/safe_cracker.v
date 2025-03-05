@@ -16,39 +16,31 @@ module safe_cracker(
     wire [1:0] game_status;
 
     // Keypad Decoder
-    Decoder decoder(
+    decoder decoder(
         .clock_100Mhz(clock_100Mhz),
-        .Row(JB[7:4]),
-        .Col(JB[3:0]),
-        .DecodeOut(Decode)
+        .row(JB[7:4]),
+        .col(JB[3:0]),
+        .dec_out(decode)
     );
-
-    reg [15:0] debounce_counter;
 
     always @(posedge clock_100Mhz or posedge reset) begin
         if (reset) begin
-            debounce_counter <= 0;
-            prev_key_pressed <= 0;
+            entered_code <= 16'h0000;
+            digit_count <= 0;
+            code_entered <= 0;
         end
-        else if (Decode != 4'hF) begin
-            if (debounce_counter < 50000)
-                debounce_counter <= debounce_counter + 1;
-            else if (!prev_key_pressed) begin
-                if (digit_count < 4) begin
-                    entered_code <= {entered_code[11:0], Decode};
-                    digit_count <= digit_count + 1;
-                end
-                if (digit_count == 3)
-                    code_entered <= 1;
-                else
-                    code_entered <= 0;
-                prev_key_pressed <= 1;
+        else if (decode != 4'hF) begin  // If a valid key is pressed
+            if (digit_count < 4) begin  // Only store up to 4 digits
+                entered_code <= {entered_code[11:0], decode}; // Shift new digit in
+                digit_count <= digit_count + 1;
             end
+            if (digit_count == 3) // After entering the 4th digit
+                code_entered <= 1;
+            else
+                code_entered <= 0;
         end
         else begin
-            debounce_counter <= 0;
-            prev_key_pressed <= 0;
-            code_entered <= 0;
+            code_entered <= 0; // Reset code_entered until 4 digits are entered again
         end
     end
 
