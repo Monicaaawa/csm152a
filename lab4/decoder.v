@@ -31,7 +31,6 @@ module Decoder(
                     4'b0111: DecodeOut <= 4'h2; // 2
                     4'b1011: DecodeOut <= 4'h5; // 5
                     4'b1101: DecodeOut <= 4'h8; // 8
-                    4'b1110: DecodeOut <= 4'hF; // F
                     default: DecodeOut <= 4'hF;
                 endcase
             end
@@ -40,16 +39,6 @@ module Decoder(
                     4'b0111: DecodeOut <= 4'h3; // 3
                     4'b1011: DecodeOut <= 4'h6; // 6
                     4'b1101: DecodeOut <= 4'h9; // 9
-                    4'b1110: DecodeOut <= 4'hE; // E
-                    default: DecodeOut <= 4'hF;
-                endcase
-            end
-            4'b1110: begin // Column 4
-                case (Row)
-                    4'b0111: DecodeOut <= 4'hA; // A
-                    4'b1011: DecodeOut <= 4'hB; // B
-                    4'b1101: DecodeOut <= 4'hC; // C
-                    4'b1110: DecodeOut <= 4'hD; // D
                     default: DecodeOut <= 4'hF;
                 endcase
             end

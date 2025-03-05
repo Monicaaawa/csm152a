@@ -10,7 +10,7 @@ module safe_cracker(
 
     wire [15:0] displayed_number, secret_code;
     wire [3:0] Decode;
-    wire [15:0] entered_code;
+    reg [15:0] entered_code;
     reg [2:0] digit_count;
     reg code_entered;
     wire [1:0] game_status;
@@ -23,24 +23,32 @@ module safe_cracker(
         .DecodeOut(Decode)
     );
 
+    reg [15:0] debounce_counter;
+
     always @(posedge clock_100Mhz or posedge reset) begin
         if (reset) begin
-            entered_code <= 16'h0000;
-            digit_count <= 0;
-            code_entered <= 0;
+            debounce_counter <= 0;
+            prev_key_pressed <= 0;
         end
-        else if (Decode != 4'hF) begin  // If a valid key is pressed
-            if (digit_count < 4) begin  // Only store up to 4 digits
-                entered_code <= {entered_code[11:0], Decode}; // Shift new digit in
-                digit_count <= digit_count + 1;
+        else if (Decode != 4'hF) begin
+            if (debounce_counter < 50000)
+                debounce_counter <= debounce_counter + 1;
+            else if (!prev_key_pressed) begin
+                if (digit_count < 4) begin
+                    entered_code <= {entered_code[11:0], Decode};
+                    digit_count <= digit_count + 1;
+                end
+                if (digit_count == 3)
+                    code_entered <= 1;
+                else
+                    code_entered <= 0;
+                prev_key_pressed <= 1;
             end
-            if (digit_count == 3) // After entering the 4th digit
-                code_entered <= 1;
-            else
-                code_entered <= 0;
         end
         else begin
-            code_entered <= 0; // Reset code_entered until 4 digits are entered again
+            debounce_counter <= 0;
+            prev_key_pressed <= 0;
+            code_entered <= 0;
         end
     end
 
@@ -67,7 +75,6 @@ module safe_cracker(
         .clock_100Mhz(clock_100Mhz),
         .reset(reset),
         .number(displayed_number),
-        .blink(game_status == 1),
         .game_status(game_status),
         .Anode_Activate(Anode_Activate),
         .LED_out(LED_out)
