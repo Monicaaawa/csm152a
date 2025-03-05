@@ -9,7 +9,7 @@ module safe_cracker(
     );
 
     wire [15:0] displayed_number, secret_code;
-    wire [3:0] Decode;
+    wire [3:0] decode;
     reg [15:0] entered_code;
     reg [2:0] digit_count;
     reg code_entered;
