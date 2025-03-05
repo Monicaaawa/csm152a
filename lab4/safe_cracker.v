@@ -23,11 +23,13 @@ module safe_cracker(
         .dec_out(decode)
     );
 
+    reg prev_key_pressed;
     always @(posedge clock_100Mhz or posedge reset) begin
         if (reset) begin
             entered_code <= 16'h0000;
             digit_count <= 0;
             code_entered <= 0;
+            prev_key_pressed <= 0;
         end
         else if (decode != 4'hF) begin  // If a valid key is pressed
             if (digit_count < 4) begin  // Only store up to 4 digits
@@ -36,12 +38,11 @@ module safe_cracker(
             end
             if (digit_count == 3) // After entering the 4th digit
                 code_entered <= 1;
-            else
-                code_entered <= 0;
+            prev_key_pressed <= 1;
         end
         else begin
-            code_entered <= 0; // Reset code_entered until 4 digits are entered again
-        end
+            prev_key_pressed <= 0;
+        end        
     end
 
     // Mouse Controller
