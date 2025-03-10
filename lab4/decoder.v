@@ -1,51 +1,110 @@
+`timescale 1ns / 1ps
+
 module decoder(
-    input clock_100Mhz,             // 100MHz onboard clock
-    input [3:0] row,       // rows on Keypad
-    output reg [3:0] col,  // columns on Keypad
-    output reg [3:0] dec_out // Output decoded key
-);
+    input clock_100Mhz,
+    input [3:0] row,
+    output reg [3:0] col,
+    output reg [3:0] key
+    );
 
-    reg [19:0] scan_clk; // Counter for timing column scan
+    // counter bits
+    localparam BITS = 20;
+    
+    // number of clk ticks for 1ms: 100Mhz / 1000
+    localparam ONE_MS_TICKS = 100000000 / 1000;
+    
+    // settle time of 1 us = 100Mhz / 1000000
+    localparam SETTLE_TIME = 100000000 / 1000000;
+    
+    wire [BITS - 1 : 0] key_counter;
+    reg rst = 1'b0;
+    
+    // instantiate a 20-bit counter circuit
+    counter_n #(.BITS(BITS)) counter(
+        .clk(clk),
+        .rst(rst),
+        .q(key_counter)
+    );
+    
+    // check on each clock
+    always @ (posedge clk)
+    begin
+        case (key_counter)
+            0:
+                rst <= 1'b0;
+                
+            ONE_MS_TICKS:
+                col <= 4'b0111;
 
-    always @(posedge clock_100Mhz) begin
-        case (scan_clk[19:18]) // Scan each column every ~1ms
-            2'b00: col <= 4'b0111; // Activate column 1
-            2'b01: col <= 4'b1011; // Activate column 2
-            2'b10: col <= 4'b1101; // Activate column 3
-            2'b11: col <= 4'b1110; // Activate column 4
+            ONE_MS_TICKS + SETTLE_TIME:
+            begin
+                case (row)
+                    4'b0111:
+                        key <= 4'b0001; // 1
+                    4'b1011:
+                        key <= 4'b0100; // 4
+                    4'b1101:
+                        key <= 4'b0111; // 7
+                    4'b1110:
+                        key <= 4'b0000; // 0
+                endcase
+            end
+            
+            2 * ONE_MS_TICKS:
+                col <= 4'b1011;
+            
+            2 * ONE_MS_TICKS + SETTLE_TIME:
+            begin
+                case (row)
+                    4'b0111:
+                        key <= 4'b0010; // 2
+                    4'b1011:
+                        key <= 4'b0101; // 5
+                    4'b1101:
+                        key <= 4'b1000; // 8
+                    4'b1110:
+                        key <= 4'b1111; // F
+                endcase
+            end
+
+            // 3ms
+            3 * ONE_MS_TICKS:
+                col <= 4'b1101;
+
+            3 * ONE_MS_TICKS + SETTLE_TIME:
+            begin
+                case (row)
+                    4'b0111:
+                        key <= 4'b0011; // 3
+                    4'b1011:
+                        key <= 4'b0110; // 6
+                    4'b1101:
+                        key <= 4'b1001; // 9
+                    4'b1110:
+                        key <= 4'b1110; // E
+                endcase
+            end
+            
+            // 4ms
+            4 * ONE_MS_TICKS:
+                col <= 4'b1110;
+            
+            4 * ONE_MS_TICKS + SETTLE_TIME:
+            begin
+                case (row)
+                    4'b0111:
+                        key <= 4'b1010; // A
+                    4'b1011:
+                        key <= 4'b1011; // B
+                    4'b1101:
+                        key <= 4'b1100; // C
+                    4'b1110:
+                        key <= 4'b1101; // D
+                endcase
+
+                // reset the counter                
+                rst <= 1'b1;
+            end     
         endcase
-
-        // Decode key based on active column and detected row
-        case (col)
-            4'b0111: begin // column 1
-                case (row)
-                    4'b0111: dec_out <= 4'h1; // 1
-                    4'b1011: dec_out <= 4'h4; // 4
-                    4'b1101: dec_out <= 4'h7; // 7
-                    4'b1110: dec_out <= 4'h0; // 0
-                    default: dec_out <= 4'hF; // No key
-                endcase
-            end
-            4'b1011: begin // column 2
-                case (row)
-                    4'b0111: dec_out <= 4'h2; // 2
-                    4'b1011: dec_out <= 4'h5; // 5
-                    4'b1101: dec_out <= 4'h8; // 8
-                    default: dec_out <= 4'hF;
-                endcase
-            end
-            4'b1101: begin // column 3
-                case (row)
-                    4'b0111: dec_out <= 4'h3; // 3
-                    4'b1011: dec_out <= 4'h6; // 6
-                    4'b1101: dec_out <= 4'h9; // 9
-                    default: dec_out <= 4'hF;
-                endcase
-            end
-            default: dec_out <= 4'hF;
-        endcase
-
-        scan_clk <= scan_clk + 1; // Increment scan clock
     end
-
 endmodule
