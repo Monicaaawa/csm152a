@@ -20,13 +20,14 @@ module mouse_basys3_FPGA(
 
     // LFSR for Pseudo-Random Number Generation
     reg [13:0] lfsr = 14'b10110111000011; // Initial seed
+    reg [3:0] key;
     
     // Generate a new random number upon reset
     always @(posedge clock_100Mhz or posedge reset) begin
         if (reset) begin
             // LFSR-based pseudo-random number generator
             lfsr <= {lfsr[12:0], lfsr[13] ^ lfsr[4] ^ lfsr[3] ^ lfsr[1]}; 
-            displayed_number <= (lfsr % 9999) + 1; // Ensure range is 1-9999
+            key <= (lfsr % 9) + 1; // Ensure range is 1-9999
         end else begin
             lfsr <= {lfsr[12:0], lfsr[13] ^ lfsr[4] ^ lfsr[3] ^ lfsr[1]};
         end
@@ -44,7 +45,7 @@ module mouse_basys3_FPGA(
 
     always @(negedge Mouse_Clk or posedge reset) begin
         if(reset)
-            displayed_number <= (lfsr % 9999) + 1; // Set random number at reset
+            displayed_number <= 0; // Set random number at reset
         else begin
             if(Mouse_bits == 1) begin
                 if(Mouse_Data == 1)
@@ -70,7 +71,7 @@ module mouse_basys3_FPGA(
     always @(posedge clock_100Mhz or posedge reset) begin
         if(reset)
             blink_counter <= 0;
-        else if(displayed_number == lfsr) // Blink when displayed_number == PRNG value
+        else if(displayed_number == key)
             blink_counter <= blink_counter + 1;
         else
             blink_counter <= 0;
@@ -79,8 +80,8 @@ module mouse_basys3_FPGA(
     always @(posedge clock_100Mhz or posedge reset) begin
         if(reset)
             blink_enable <= 1;
-        else if(displayed_number == lfsr)
-            blink_enable <= blink_counter[25]; // Toggle blinking
+        else if(displayed_number == key)
+            blink_enable <= blink_counter[25];
         else
             blink_enable <= 1;
     end
