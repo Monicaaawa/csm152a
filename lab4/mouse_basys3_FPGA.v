@@ -15,8 +15,22 @@ module mouse_basys3_FPGA(
     wire [1:0] LED_activating_counter; 
     
     // Blinking registers
-    reg [25:0] blink_counter; // Slow down the blink rate
+    reg [25:0] blink_counter;
     reg blink_enable;
+
+    // LFSR for Pseudo-Random Number Generation
+    reg [13:0] lfsr = 14'b10110111000011; // Initial seed
+    
+    // Generate a new random number upon reset
+    always @(posedge clock_100Mhz or posedge reset) begin
+        if (reset) begin
+            // LFSR-based pseudo-random number generator
+            lfsr <= {lfsr[12:0], lfsr[13] ^ lfsr[4] ^ lfsr[3] ^ lfsr[1]}; 
+            displayed_number <= (lfsr % 9999) + 1; // Ensure range is 1-9999
+        end else begin
+            lfsr <= {lfsr[12:0], lfsr[13] ^ lfsr[4] ^ lfsr[3] ^ lfsr[1]};
+        end
+    end
 
     // Mouse data handling
     always @(posedge Mouse_Clk or posedge reset) begin
@@ -30,7 +44,7 @@ module mouse_basys3_FPGA(
 
     always @(negedge Mouse_Clk or posedge reset) begin
         if(reset)
-            displayed_number <= 0;
+            displayed_number <= (lfsr % 9999) + 1; // Set random number at reset
         else begin
             if(Mouse_bits == 1) begin
                 if(Mouse_Data == 1)
@@ -56,7 +70,7 @@ module mouse_basys3_FPGA(
     always @(posedge clock_100Mhz or posedge reset) begin
         if(reset)
             blink_counter <= 0;
-        else if(displayed_number == 9999) // Activate blink when displayed_number is 9999
+        else if(displayed_number == lfsr) // Blink when displayed_number == PRNG value
             blink_counter <= blink_counter + 1;
         else
             blink_counter <= 0;
@@ -65,10 +79,10 @@ module mouse_basys3_FPGA(
     always @(posedge clock_100Mhz or posedge reset) begin
         if(reset)
             blink_enable <= 1;
-        else if(displayed_number == 9999) // Toggle blink_enable
-            blink_enable <= blink_counter[25]; // Slow blink
+        else if(displayed_number == lfsr)
+            blink_enable <= blink_counter[25]; // Toggle blinking
         else
-            blink_enable <= 1; // Always enable when not at 9999
+            blink_enable <= 1;
     end
 
     always @(*) begin
@@ -92,7 +106,7 @@ module mouse_basys3_FPGA(
                 end
             endcase
         end else begin
-            Anode_Activate = 4'b1111; // Turn off all digits during blink-off phase
+            Anode_Activate = 4'b1111;
         end
     end
 
@@ -113,8 +127,7 @@ module mouse_basys3_FPGA(
                 default: LED_out = 7'b0000001; // "0"
             endcase
         end else begin
-            LED_out = 7'b1111111; // Turn off display during blink-off phase
+            LED_out = 7'b1111111;
         end
     end
-
 endmodule
